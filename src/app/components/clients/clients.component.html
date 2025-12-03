@@ -1,0 +1,126 @@
+<app-navbar></app-navbar>
+
+<div class="clients-container">
+  <header class="header">
+    <h1>Gestion des Clients</h1>
+  </header>
+
+  <div class="content">
+    <div class="toolbar">
+      <button (click)="openCreateModal()" class="btn-add">
+        + Ajouter un client
+      </button>
+    </div>
+
+    <div *ngIf="errorMessage" class="error-message">
+      {{ errorMessage }}
+    </div>
+
+    <table class="clients-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nom</th>
+          <th>Prénom</th>
+          <th>Email</th>
+          <th>Téléphone</th>
+          <th>Adresse</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let client of clients">
+          <td>{{ client.id }}</td>
+          <td>{{ client.nom }}</td>
+          <td>{{ client.prenom }}</td>
+          <td>{{ client.email }}</td>
+          <td>{{ client.telephone }}</td>
+          <td>{{ client.adresse }}</td>
+          <td class="actions">
+            <button (click)="openEditModal(client)" class="btn-edit">Modifier</button>
+            <button (click)="deleteClient(client.id!)" class="btn-delete">Supprimer</button>
+          </td>
+        </tr>
+        <tr *ngIf="clients.length === 0">
+          <td colspan="7" class="no-data">Aucun client trouvé</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Modal -->
+  <div *ngIf="showModal" class="modal-overlay" (click)="closeModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <h2>{{ isEditing ? 'Modifier le client' : 'Ajouter un client' }}</h2>
+      
+      <form (ngSubmit)="saveClient()" #clientForm="ngForm">
+        <div class="form-group">
+          <label for="nom">Nom *</label>
+          <input
+            type="text"
+            id="nom"
+            name="nom"
+            [(ngModel)]="currentClient.nom"
+            required
+            class="form-control"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="prenom">Prénom *</label>
+          <input
+            type="text"
+            id="prenom"
+            name="prenom"
+            [(ngModel)]="currentClient.prenom"
+            required
+            class="form-control"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="email">Email *</label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            [(ngModel)]="currentClient.email"
+            required
+            class="form-control"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="telephone">Téléphone *</label>
+          <input
+            type="tel"
+            id="telephone"
+            name="telephone"
+            [(ngModel)]="currentClient.telephone"
+            required
+            class="form-control"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="adresse">Adresse *</label>
+          <textarea
+            id="adresse"
+            name="adresse"
+            [(ngModel)]="currentClient.adresse"
+            required
+            class="form-control"
+            rows="3"
+          ></textarea>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" (click)="closeModal()" class="btn-cancel">Annuler</button>
+          <button type="submit" [disabled]="!clientForm.valid" class="btn-save">
+            {{ isEditing ? 'Modifier' : 'Ajouter' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

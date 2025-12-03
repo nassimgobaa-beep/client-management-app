@@ -1,0 +1,57 @@
+<app-navbar></app-navbar>
+
+<div class="home-container">
+  <div class="hero-section">
+    <h1>Bienvenue {{ currentUser }} !</h1>
+    <p class="subtitle">Système de gestion des clients</p>
+  </div>
+
+  <div class="cards-grid">
+    <div class="card" routerLink="/clients">
+      <div class="card-icon">👥</div>
+      <h3>Gestion des Clients</h3>
+      <p>Créez, modifiez et gérez vos clients en toute simplicité</p>
+      <button class="card-button">Accéder →</button>
+    </div>
+
+    <div class="card" routerLink="/contact">
+      <div class="card-icon">📧</div>
+      <h3>Contact</h3>
+      <p>Besoin d'aide ? Contactez notre équipe de support</p>
+      <button class="card-button">Contacter →</button>
+    </div>
+
+    <div class="card">
+      <div class="card-icon">📊</div>
+      <h3>Statistiques</h3>
+      <p>Visualisez vos données et analyses en temps réel</p>
+      <button class="card-button disabled">Bientôt disponible</button>
+    </div>
+  </div>
+
+  <div class="features-section">
+    <h2>Fonctionnalités principales</h2>
+    <div class="features-grid">
+      <div class="feature">
+        <div class="feature-icon">🔒</div>
+        <h4>Sécurisé</h4>
+        <p>Authentification JWT et protection des données</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">⚡</div>
+        <h4>Rapide</h4>
+        <p>Interface réactive et performante</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📱</div>
+        <h4>Responsive</h4>
+        <p>Accessible sur tous vos appareils</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🎨</div>
+        <h4>Moderne</h4>
+        <p>Design intuitif et élégant</p>
+      </div>
+    </div>
+  </div>
+</div>

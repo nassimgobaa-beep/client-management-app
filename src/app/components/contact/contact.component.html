@@ -1,0 +1,107 @@
+<app-navbar></app-navbar>
+
+<div class="contact-container">
+  <div class="contact-header">
+    <h1>Contactez-nous</h1>
+    <p>Une question ? N'hésitez pas à nous contacter</p>
+  </div>
+
+  <div class="contact-content">
+    <div class="contact-info">
+      <div class="info-card">
+        <div class="info-icon">📧</div>
+        <h3>Email</h3>
+        <p>support&#64;gestionapp.fr</p>
+      </div>
+
+      <div class="info-card">
+        <div class="info-icon">📞</div>
+        <h3>Téléphone</h3>
+        <p>+33 1 23 45 67 89</p>
+      </div>
+
+      <div class="info-card">
+        <div class="info-icon">📍</div>
+        <h3>Adresse</h3>
+        <p>123 rue de Paris<br>75001 Paris, France</p>
+      </div>
+
+      <div class="info-card">
+        <div class="info-icon">🕐</div>
+        <h3>Horaires</h3>
+        <p>Lun - Ven: 9h - 18h<br>Sam - Dim: Fermé</p>
+      </div>
+    </div>
+
+    <div class="contact-form-wrapper">
+      <div *ngIf="submitted" class="success-message">
+        <div class="success-icon">✓</div>
+        <h3>Message envoyé !</h3>
+        <p>Nous vous répondrons dans les plus brefs délais.</p>
+      </div>
+
+      <form *ngIf="!submitted" (ngSubmit)="onSubmit()" #contactForm="ngForm" class="contact-form">
+        <div class="form-group">
+          <label for="nom">Nom complet *</label>
+          <input
+            type="text"
+            id="nom"
+            name="nom"
+            [(ngModel)]="contact.nom"
+            required
+            [disabled]="isLoading"
+            class="form-control"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="email">Email *</label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            [(ngModel)]="contact.email"
+            required
+            [disabled]="isLoading"
+            class="form-control"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="sujet">Sujet *</label>
+          <input
+            type="text"
+            id="sujet"
+            name="sujet"
+            [(ngModel)]="contact.sujet"
+            required
+            [disabled]="isLoading"
+            class="form-control"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="message">Message *</label>
+          <textarea
+            id="message"
+            name="message"
+            [(ngModel)]="contact.message"
+            required
+            [disabled]="isLoading"
+            class="form-control"
+            rows="6"
+            placeholder="Décrivez votre demande..."
+          ></textarea>
+        </div>
+
+        <button
+          type="submit"
+          [disabled]="!contactForm.valid || isLoading"
+          class="btn-submit"
+        >
+          {{ isLoading ? 'Envoi en cours...' : 'Envoyer le message' }}
+        </button>
+      </form>
+    </div>
+  </div>
+</div>

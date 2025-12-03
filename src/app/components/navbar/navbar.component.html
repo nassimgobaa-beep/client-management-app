@@ -1,0 +1,48 @@
+<nav class="navbar">
+  <div class="navbar-container">
+    <div class="navbar-brand">
+      <h1>Gestion App</h1>
+    </div>
+
+    <button class="navbar-toggle" (click)="toggleMenu()" [class.active]="isMenuOpen">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+
+    <div class="navbar-menu" [class.active]="isMenuOpen">
+      <a 
+        routerLink="/home" 
+        routerLinkActive="active"
+        class="navbar-link"
+        (click)="closeMenu()"
+      >
+        <span class="icon">🏠</span>
+        Accueil
+      </a>
+      <a 
+        routerLink="/clients" 
+        routerLinkActive="active"
+        class="navbar-link"
+        (click)="closeMenu()"
+      >
+        <span class="icon">👥</span>
+        Clients
+      </a>
+      <a 
+        routerLink="/contact" 
+        routerLinkActive="active"
+        class="navbar-link"
+        (click)="closeMenu()"
+      >
+        <span class="icon">📧</span>
+        Contact
+      </a>
+    </div>
+
+    <div class="navbar-user" *ngIf="currentUser">
+      <span class="user-name">{{ currentUser }}</span>
+      <button class="btn-logout" (click)="logout()">Déconnexion</button>
+    </div>
+  </div>
+</nav>

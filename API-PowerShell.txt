@@ -1,0 +1,268 @@
+# API REST PowerShell avec JWT
+# Port d'écoute
+$port = 5000
+$url = "http://localhost:$port/"
+
+# Clé secrète pour JWT (à changer en production)
+$secretKey = "NASSecredKey120ABab2025!@"
+
+# Base de données simulée
+$users = @(
+    @{ Username = "admin"; Password = "admin123" }
+    @{ Username = "user"; Password = "user123" }
+)
+
+$clients = @(
+    @{ Id = 1; Nom = "Dupont"; Prenom = "Jean"; Email = "jean.dupont@example.com"; Telephone = "0612345678"; Adresse = "10 rue de Paris, 75001 Paris" }
+    @{ Id = 2; Nom = "Martin"; Prenom = "Sophie"; Email = "sophie.martin@example.com"; Telephone = "0623456789"; Adresse = "25 avenue des Champs, 69000 Lyon" }
+    @{ Id = 3; Nom = "Bernard"; Prenom = "Pierre"; Email = "pierre.bernard@example.com"; Telephone = "0634567890"; Adresse = "5 boulevard Victor Hugo, 33000 Bordeaux" }
+    @{ Id = 4; Nom = "Dubois"; Prenom = "Marie"; Email = "marie.dubois@example.com"; Telephone = "0645678901"; Adresse = "15 rue de la République, 13000 Marseille" }
+)
+
+$nextClientId = 5
+
+# Fonction pour créer un JWT
+function New-JWT {
+    param([string]$Username)
+    
+    $header = @{
+        alg = "HS256"
+        typ = "JWT"
+    } | ConvertTo-Json -Compress
+    n
+    $payload = @{
+        username = $Username
+        exp = [DateTimeOffset]::UtcNow.AddHours(2).ToUnixTimeSeconds()
+        iat = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+    } | ConvertTo-Json -Compress
+    
+    $headerBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($header)).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+    $payloadBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($payload)).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+    
+    $signature = "$headerBase64.$payloadBase64"
+    $hmac = New-Object System.Security.Cryptography.HMACSHA256
+    $hmac.Key = [Text.Encoding]::UTF8.GetBytes($secretKey)
+    $signatureBytes = $hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes($signature))
+    $signatureBase64 = [Convert]::ToBase64String($signatureBytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+    
+    return "$signature.$signatureBase64"
+}
+
+# Fonction pour valider un JWT
+function Test-JWT {
+    param([string]$Token)
+    
+    try {
+        $parts = $Token.Split('.')
+        if ($parts.Count -ne 3) { return $false }
+        
+        $payloadJson = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($parts[1].Replace('-', '+').Replace('_', '/').PadRight($parts[1].Length + (4 - $parts[1].Length % 4) % 4, '=')))
+        $payload = $payloadJson | ConvertFrom-Json
+        
+        $exp = $payload.exp
+        $now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+        
+        if ($now -gt $exp) { return $false }
+        
+        return $true
+    }
+    catch {
+        return $false
+    }
+}
+
+# Fonction pour gérer les requêtes
+function Handle-Request {
+    param($context)
+    
+    $request = $context.Request
+    $response = $context.Response
+    
+    # CORS headers
+    $response.Headers.Add("Access-Control-Allow-Origin", "*")
+    $response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+    $response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization")
+    
+    # Gérer OPTIONS (preflight)
+    if ($request.HttpMethod -eq "OPTIONS") {
+        $response.StatusCode = 200
+        $response.Close()
+        return
+    }
+    
+    $path = $request.Url.LocalPath
+    $method = $request.HttpMethod110011
+    
+    try {
+        # Login
+        if ($path -eq "/api/login" -and $method -eq "POST") {
+            $reader = New-Object System.IO.StreamReader($request.InputStream)
+            $body = $reader.ReadToEnd() | ConvertFrom-Json
+            $reader.Close()
+            
+            $user = $users | Where-Object { $_.Username -eq $body.username -and $_.Password -eq $body.password }
+            
+            if ($user) {
+                $token = New-JWT -Username $body.username
+                $result = @{
+                    token = $token
+                    username = $body.username
+                } | ConvertTo-Json
+                
+                $buffer = [Text.Encoding]::UTF8.GetBytes($result)
+                $response.ContentType = "application/json"
+                $response.StatusCode = 200
+                $response.ContentLength64 = $buffer.Length
+                $response.OutputStream.Write($buffer, 0, $buffer.Length)
+            }
+            else {
+                $response.StatusCode = 401
+            }
+        }
+        # GET Clients
+        elseif ($path -eq "/api/clients" -and $method -eq "GET") {
+            $authHeader = $request.Headers["Authorization"]
+            if ($authHeader -and $authHeader.StartsWith("Bearer ")) {
+                $token = $authHeader.Substring(7)
+                if (Test-JWT -Token $token) {
+                    $result = $clients | ConvertTo-Json
+                    $buffer = [Text.Encoding]::UTF8.GetBytes($result)
+                    $response.ContentType = "application/json"
+                    $response.StatusCode = 200
+                    $response.ContentLength64 = $buffer.Length
+                    $response.OutputStream.Write($buffer, 0, $buffer.Length)
+                }
+                else {
+                    $response.StatusCode = 401
+                }
+            }
+            else {
+                $response.StatusCode = 401
+            }
+        }
+        # POST Client
+        elseif ($path -eq "/api/clients" -and $method -eq "POST") {
+            $authHeader = $request.Headers["Authorization"]
+            if ($authHeader -and $authHeader.StartsWith("Bearer ")) {
+                $token = $authHeader.Substring(7)
+                if (Test-JWT -Token $token) {
+                    $reader = New-Object System.IO.StreamReader($request.InputStream)
+                    $body = $reader.ReadToEnd() | ConvertFrom-Json
+                    $reader.Close()
+                    
+                    $newClient = @{
+                        Id = $script:nextClientId++
+                        Nom = $body.nom
+                        Prenom = $body.prenom
+                        Email = $body.email
+                        Telephone = $body.telephone
+                        Adresse = $body.adresse
+                    }
+                    $script:clients += $newClient
+                    
+                    $result = $newClient | ConvertTo-Json
+                    $buffer = [Text.Encoding]::UTF8.GetBytes($result)
+                    $response.ContentType = "application/json"
+                    $response.StatusCode = 201
+                    $response.ContentLength64 = $buffer.Length
+                    $response.OutputStream.Write($buffer, 0, $buffer.Length)
+                }
+                else {
+                    $response.StatusCode = 401
+                }
+            }
+            else {
+                $response.StatusCode = 401
+            }
+        }
+        # PUT Client
+        elseif ($path -match "^/api/clients/(\d+)$" -and $method -eq "PUT") {
+            $authHeader = $request.Headers["Authorization"]
+            if ($authHeader -and $authHeader.StartsWith("Bearer ")) {
+                $token = $authHeader.Substring(7)
+                if (Test-JWT -Token $token) {
+                    $id = [int]$matches[1]
+                    $reader = New-Object System.IO.StreamReader($request.InputStream)
+                    $body = $reader.ReadToEnd() | ConvertFrom-Json
+                    $reader.Close()
+                    
+                    $index = $script:clients.IndexOf(($script:clients | Where-Object { $_.Id -eq $id }))
+                    if ($index -ge 0) {
+                        $script:clients[$index] = @{
+                            Id = $id
+                            Nom = $body.nom
+                            Prenom = $body.prenom
+                            Email = $body.email
+                            Telephone = $body.telephone
+                            Adresse = $body.adresse
+                        }
+                        
+                        $result = $script:clients[$index] | ConvertTo-Json
+                        $buffer = [Text.Encoding]::UTF8.GetBytes($result)
+                        $response.ContentType = "application/json"
+                        $response.StatusCode = 200
+                        $response.ContentLength64 = $buffer.Length
+                        $response.OutputStream.Write($buffer, 0, $buffer.Length)
+                    }
+                    else {
+                        $response.StatusCode = 404
+                    }
+                }
+                else {
+                    $response.StatusCode = 401
+                }
+            }
+            else {
+                $response.StatusCode = 401
+            }
+        }
+        # DELETE Client
+        elseif ($path -match "^/api/clients/(\d+)$" -and $method -eq "DELETE") {
+            $authHeader = $request.Headers["Authorization"]
+            if ($authHeader -and $authHeader.StartsWith("Bearer ")) {
+                $token = $authHeader.Substring(7)
+                if (Test-JWT -Token $token) {
+                    $id = [int]$matches[1]
+                    $script:clients = $script:clients | Where-Object { $_.Id -ne $id }
+                    $response.StatusCode = 204
+                }
+                else {
+                    $response.StatusCode = 401
+                }
+            }
+            else {
+                $response.StatusCode = 401
+            }
+        }
+        else {
+            $response.StatusCode = 404
+        }
+    }
+    catch {
+        Write-Host "Erreur: $_"
+        $response.StatusCode = 500
+    }
+    
+    $response.Close()
+}
+
+# Démarrer le serveur
+$listener = New-Object System.Net.HttpListener
+$listener.Prefixes.Add($url)
+$listener.Start()
+
+Write-Host "Serveur API PowerShell démarré sur $url" -ForegroundColor Green
+Write-Host "Utilisateurs disponibles:" -ForegroundColor Cyan
+$users | ForEach-Object { Write-Host "  - Username: $($_.Username), Password: $($_.Password)" }
+Write-Host "`nAppuyez sur Ctrl+C pour arrêter le serveur" -ForegroundColor Yellow
+
+try {
+    while ($listener.IsListening) {
+        $context = $listener.GetContext()
+        Handle-Request -context $context
+    }
+}
+finally {
+    $listener.Stop()
+    Write-Host "`nServeur arrêté" -ForegroundColor Red
+}

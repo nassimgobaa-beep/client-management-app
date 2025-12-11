@@ -29,7 +29,7 @@ function New-JWT {
         alg = "HS256"
         typ = "JWT"
     } | ConvertTo-Json -Compress
-    n
+    
     $payload = @{
         username = $Username
         exp = [DateTimeOffset]::UtcNow.AddHours(2).ToUnixTimeSeconds()
@@ -45,7 +45,7 @@ function New-JWT {
     $signatureBytes = $hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes($signature))
     $signatureBase64 = [Convert]::ToBase64String($signatureBytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
     
-    return "$signature.$signatureBase64"
+    return "$headerBase64.$payloadBase64.$signatureBase64"
 }
 
 # Fonction pour valider un JWT
@@ -91,11 +91,12 @@ function Handle-Request {
     }
     
     $path = $request.Url.LocalPath
-    $method = $request.HttpMethod110011
+    $method = $request.HttpMethod
     
     try {
         # Login
         if ($path -eq "/api/login" -and $method -eq "POST") {
+            Write-Host "Tentative de connexion" -ForegroundColor Cyan
             $reader = New-Object System.IO.StreamReader($request.InputStream)
             $body = $reader.ReadToEnd() | ConvertFrom-Json
             $reader.Close()
@@ -103,6 +104,7 @@ function Handle-Request {
             $user = $users | Where-Object { $_.Username -eq $body.username -and $_.Password -eq $body.password }
             
             if ($user) {
+                Write-Host "Utilisateur authentifié: $($body.username)" -ForegroundColor Green
                 $token = New-JWT -Username $body.username
                 $result = @{
                     token = $token
@@ -116,6 +118,7 @@ function Handle-Request {
                 $response.OutputStream.Write($buffer, 0, $buffer.Length)
             }
             else {
+                Write-Host "Authentification échouée" -ForegroundColor Red
                 $response.StatusCode = 401
             }
         }
@@ -133,10 +136,12 @@ function Handle-Request {
                     $response.OutputStream.Write($buffer, 0, $buffer.Length)
                 }
                 else {
+                    Write-Host "Token JWT invalide" -ForegroundColor Red
                     $response.StatusCode = 401
                 }
             }
             else {
+                Write-Host "Authorization header manquant" -ForegroundColor Red
                 $response.StatusCode = 401
             }
         }
@@ -168,10 +173,12 @@ function Handle-Request {
                     $response.OutputStream.Write($buffer, 0, $buffer.Length)
                 }
                 else {
+                    Write-Host "Token JWT invalide" -ForegroundColor Red
                     $response.StatusCode = 401
                 }
             }
             else {
+                Write-Host "Authorization header manquant" -ForegroundColor Red
                 $response.StatusCode = 401
             }
         }
@@ -205,14 +212,17 @@ function Handle-Request {
                         $response.OutputStream.Write($buffer, 0, $buffer.Length)
                     }
                     else {
+                        Write-Host "Client non trouvé: $id" -ForegroundColor Red
                         $response.StatusCode = 404
                     }
                 }
                 else {
+                    Write-Host "Token JWT invalide" -ForegroundColor Red
                     $response.StatusCode = 401
                 }
             }
             else {
+                Write-Host "Authorization header manquant" -ForegroundColor Red
                 $response.StatusCode = 401
             }
         }
@@ -224,22 +234,26 @@ function Handle-Request {
                 if (Test-JWT -Token $token) {
                     $id = [int]$matches[1]
                     $script:clients = $script:clients | Where-Object { $_.Id -ne $id }
+                    Write-Host "Client supprimé: $id" -ForegroundColor Green
                     $response.StatusCode = 204
                 }
                 else {
+                    Write-Host "Token JWT invalide" -ForegroundColor Red
                     $response.StatusCode = 401
                 }
             }
             else {
+                Write-Host "Authorization header manquant" -ForegroundColor Red
                 $response.StatusCode = 401
             }
         }
         else {
+            Write-Host "Endpoint non trouvé: $path" -ForegroundColor Red
             $response.StatusCode = 404
         }
     }
     catch {
-        Write-Host "Erreur: $_"
+        Write-Host "Erreur: $_" -ForegroundColor Red
         $response.StatusCode = 500
     }
     

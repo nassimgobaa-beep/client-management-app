@@ -165,3 +165,20 @@
     font-size: 1.2rem;
   }
 }
+
+.project-link {
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  /* autres styles du lien */
+}
+
+.project-link.active {
+  font-weight: bold;
+  color: #ff6600; /* exemple couleur active */
+}
+.project-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+}

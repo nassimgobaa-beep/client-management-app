@@ -1,7 +1,15 @@
 <nav class="navbar">
   <div class="navbar-container">
     <div class="navbar-brand">
-      <h1>Gestion App</h1>
+     <a 
+  routerLink="/home" 
+  routerLinkActive="active"
+  class="project-link"  
+  (click)="closeMenu()"
+>
+  <h1 class="project-name">Gestion App</h1>
+</a>
+
     </div>
 
     <button class="navbar-toggle" (click)="toggleMenu()" [class.active]="isMenuOpen">
@@ -28,6 +36,24 @@
       >
         <span class="icon">👥</span>
         Clients
+      </a>
+         <a 
+        routerLink="/articles" 
+        routerLinkActive="active"
+        class="navbar-link"
+        (click)="closeMenu()"
+      >
+        <span class="icon">🛒</span>
+        Articles
+      </a>
+      <a 
+        routerLink="/stocks" 
+        routerLinkActive="active"
+        class="navbar-link"
+        (click)="closeMenu()"
+      >
+        <span class="icon">🛍️</span>
+        Stocks
       </a>
       <a 
         routerLink="/contact" 

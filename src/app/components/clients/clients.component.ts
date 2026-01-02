@@ -51,7 +51,7 @@ export class ClientsComponent implements OnInit {
   }
 
   openEditModal(client: Client): void {
-    this.currentClient = { ...client };
+    this.currentClient = {...client};
     this.isEditing = true;
     this.showModal = true;
   }
@@ -63,6 +63,7 @@ export class ClientsComponent implements OnInit {
   }
 
   saveClient(): void {
+    console.log(this.currentClient);
     if (this.isEditing && this.currentClient.id) {
       this.clientService.updateClient(this.currentClient.id, this.currentClient).subscribe({
         next: () => {

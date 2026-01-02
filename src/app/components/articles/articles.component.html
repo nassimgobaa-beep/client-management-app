@@ -1,0 +1,152 @@
+<app-navbar></app-navbar>
+
+<div class="clients-container">
+  <header class="header">
+    <h1>Gestion des Articles</h1>
+  </header>
+
+  <div class="content">
+    <div class="toolbar">
+      <button (click)="openCreate()" class="btn-add">Ajouter un article</button>
+
+      <div style="margin-left: 12px;">
+        <label class="btn-add" style="margin-left:8px; cursor:pointer;">
+          Import CSV
+          <input type="file" accept=".csv" (change)="importCSVFile($event)" style="display:none" />
+        </label>
+        <button (click)="exportCSV()" class="btn-add" style="margin-left:8px;">Export CSV</button>
+      </div>
+
+      <div style="float:right; margin-top:-40px;">
+        <input type="text" placeholder="Recherche (titre, sku, description)" [(ngModel)]="searchTerm" (input)="applyFilters()" class="form-control" style="display:inline-block; width:320px; margin-right:8px;" />
+        <select [(ngModel)]="selectedCategory" (change)="applyFilters()" class="form-control" style="display:inline-block; width:180px;">
+          <option value="">Toutes catégories</option>
+          <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
+        </select>
+      </div>
+    </div>
+
+    <div *ngIf="importError" class="error-message">{{ importError }}</div>
+
+    <table class="clients-table">
+      <thead>
+        <tr>
+          <th>Image</th>
+          <th>Titre</th>
+          <th>SKU</th>
+          <th>Prix</th>
+          <th>Catégorie</th>
+          <th>Créé</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let a of pagedArticles">
+          <td>
+            <img *ngIf="a.imageDataUrl" [src]="a.imageDataUrl" alt="img" style="width:60px; height:45px; object-fit:cover; border-radius:4px;" />
+          </td>
+          <td>{{ a.title }}</td>
+          <td>{{ a.sku }}</td>
+          <td>{{ a.price | number:'1.2-2' }}</td>
+          <td>{{ a.category }}</td>
+          <td>{{ a.createdAt | date:'short' }}</td>
+          <td class="actions">
+            <button (click)="openEdit(a)" class="btn-edit">Modifier</button>
+            <button (click)="confirmDelete(a.id)" class="btn-delete">Supprimer</button>
+            <button (click)="openHistory(a)" class="btn-edit" style="background:#2196F3;">Historique</button>
+          </td>
+        </tr>
+        <tr *ngIf="filtered.length === 0">
+          <td colspan="7" class="no-data">Aucun article trouvé</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Pagination -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
+      <div style="color:#555;">
+        Affichage {{ filtered.length === 0 ? 0 : ((currentPage-1)*pageSize + 1) }} - {{ Math.min(currentPage*pageSize, filtered.length) }} sur {{ filtered.length }}
+      </div>
+
+      <div class="actions" style="align-items:center;">
+        <button class="btn-edit" (click)="prevPage()" [disabled]="currentPage===1" style="background:#888;">Préc</button>
+
+        <ng-container *ngFor="let p of pages">
+          <button
+            class="btn-edit"
+            (click)="goToPage(p)"
+            [ngStyle]="{'background': currentPage===p ? '#333' : '#4CAF50'}"
+            style="margin:0 4px; padding:6px 10px; min-width:36px;"
+          >{{ p }}</button>
+        </ng-container>
+
+        <button class="btn-edit" (click)="nextPage()" [disabled]="currentPage===totalPages" style="background:#888;">Suiv</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Form modal -->
+  <div *ngIf="showForm" class="modal-overlay" (click)="closeForm()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <h2>{{ editing ? 'Modifier l\'article' : 'Ajouter un article' }}</h2>
+
+      <form (ngSubmit)="saveForm()">
+        <div class="form-group">
+          <label for="title">Titre *</label>
+          <input id="title" class="form-control" type="text" [(ngModel)]="form.title" name="title" required />
+        </div>
+
+        <div class="form-group">
+          <label for="sku">SKU</label>
+          <input id="sku" class="form-control" type="text" [(ngModel)]="form.sku" name="sku" />
+        </div>
+
+        <div class="form-group">
+          <label for="price">Prix</label>
+          <input id="price" class="form-control" type="number" [(ngModel)]="form.price" name="price" />
+        </div>
+
+        <div class="form-group">
+          <label for="category">Catégorie</label>
+          <input id="category" class="form-control" type="text" [(ngModel)]="form.category" name="category" list="cats" />
+          <datalist id="cats">
+            <option *ngFor="let c of categories" [value]="c"></option>
+          </datalist>
+        </div>
+
+        <div class="form-group">
+          <label for="description">Description</label>
+          <textarea id="description" class="form-control" rows="3" [(ngModel)]="form.description" name="description"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Image</label>
+          <input type="file" accept="image/*" (change)="onFileChange($event)" />
+          <div *ngIf="currentImagePreview" style="margin-top:8px;">
+            <img [src]="currentImagePreview" alt="preview" style="width:120px; border-radius:4px; border:1px solid #ddd;" />
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn-cancel" (click)="closeForm()">Annuler</button>
+          <button type="submit" class="btn-save">{{ editing ? 'Enregistrer' : 'Ajouter' }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- History modal -->
+  <div *ngIf="showHistoryModal && historyTarget" class="modal-overlay" (click)="closeHistory()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <h2>Historique — {{ historyTarget.title }}</h2>
+      <ul>
+        <li *ngFor="let h of historyTarget.history || []">
+          <strong>{{ h.action }}</strong> — {{ h.when | date:'short' }} <span *ngIf="h.note">: {{ h.note }}</span>
+        </li>
+      </ul>
+      <div class="modal-actions">
+        <button class="btn-cancel" (click)="closeHistory()">Fermer</button>
+      </div>
+    </div>
+  </div>
+</div>

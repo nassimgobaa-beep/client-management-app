@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { AuthService } from './auth.service';
 
 export interface Client {
@@ -28,9 +28,13 @@ export class ClientService {
     });
   }
 
+
   getClients(): Observable<Client[]> {
-    return this.http.get<Client[]>(this.apiUrl, { headers: this.getHeaders() });
-  }
+  return this.http.get<any[]>(this.apiUrl, { headers: this.getHeaders() })
+    .pipe(
+      map(clients => clients.map(c => this.mapClient(c)))
+    );
+}
 
   getClient(id: number): Observable<Client> {
     return this.http.get<Client>(`${this.apiUrl}/${id}`, { headers: this.getHeaders() });
@@ -47,4 +51,16 @@ export class ClientService {
   deleteClient(id: number): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`, { headers: this.getHeaders() });
   }
+
+  private mapClient(c: any): Client {
+  return {
+    id: c.Id ?? c.id,
+    nom: c.Nom ?? c.nom,
+    prenom: c.Prenom ?? c.prenom,
+    email: c.Email ?? c.email,
+    telephone: c.Telephone ?? c.telephone,
+    adresse: c.Adresse ?? c.adresse
+  };
+}
+
 }

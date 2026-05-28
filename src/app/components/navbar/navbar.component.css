@@ -182,3 +182,9 @@
   font-size: 1.5rem;
   font-weight: 700;
 }
+
+.logo {
+  width: 250px;
+  height: 250px;
+  margin-right: 0.75rem;
+}

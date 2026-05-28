@@ -7,7 +7,7 @@
   class="project-link"  
   (click)="closeMenu()"
 >
-  <h1 class="project-name">Gestion App</h1>
+<img src="/assets/logo.png" alt="Logo" class="logo" />
 </a>
 
     </div>
@@ -54,6 +54,15 @@
       >
         <span class="icon">🛍️</span>
         Stocks
+      </a>
+      <a 
+        routerLink="/suppliers" 
+        routerLinkActive="active"
+        class="navbar-link"
+        (click)="closeMenu()"
+      >
+        <span class="icon">🏭</span>
+        Fournisseurs
       </a>
       <a 
         routerLink="/contact" 

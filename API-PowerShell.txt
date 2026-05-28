@@ -12,14 +12,31 @@ $users = @(
     @{ Username = "user"; Password = "user123" }
 )
 
-$clients = @(
+$script:clients = @(
     @{ Id = 1; Nom = "Dupont"; Prenom = "Jean"; Email = "jean.dupont@example.com"; Telephone = "0612345678"; Adresse = "10 rue de Paris, 75001 Paris" }
     @{ Id = 2; Nom = "Martin"; Prenom = "Sophie"; Email = "sophie.martin@example.com"; Telephone = "0623456789"; Adresse = "25 avenue des Champs, 69000 Lyon" }
     @{ Id = 3; Nom = "Bernard"; Prenom = "Pierre"; Email = "pierre.bernard@example.com"; Telephone = "0634567890"; Adresse = "5 boulevard Victor Hugo, 33000 Bordeaux" }
     @{ Id = 4; Nom = "Dubois"; Prenom = "Marie"; Email = "marie.dubois@example.com"; Telephone = "0645678901"; Adresse = "15 rue de la République, 13000 Marseille" }
 )
 
-$nextClientId = 5
+$script:nextClientId = 5
+
+# Stocks in-memory
+$script:stocks = @(
+    @{ Id = 1; Name = "Clavier mécanique"; Quantity = 12; Location = "Entrepôt A"; Sku = "KB-100"; Price = 49.99; Supplier = "Fournisseur A"; ReorderLevel = 5; Description = "Clavier mécanique rétroéclairé" }
+    @{ Id = 2; Name = "Souris sans fil"; Quantity = 30; Location = "Entrepôt B"; Sku = "MS-200"; Price = 29.5; Supplier = "Fournisseur B"; ReorderLevel = 10; Description = "Souris ergonomique" }
+    @{ Id = 3; Name = 'Ecran 24"'; Quantity = 8; Location = "Entrepôt A"; Sku = "MN-24"; Price = 129.99; Supplier = "Fournisseur C"; ReorderLevel = 2; Description = "Moniteur 24 pouces" }
+)
+
+$script:nextStockId = 4
+
+# Suppliers in-memory
+$script:suppliers = @(
+    @{ Id = 1; Name = "Fournisseur A"; ContactPerson = "Alice"; Email = "alice@fournA.com"; Phone = "0102030405"; Address = "10 rue A, Paris"; Notes = "Principal fournisseur" }
+    @{ Id = 2; Name = "Fournisseur B"; ContactPerson = "Bob"; Email = "bob@fournB.com"; Phone = "0605040302"; Address = "25 avenue B, Lyon"; Notes = "Secondaire" }
+)
+
+$script:nextSupplierId = 3
 
 # Fonction pour créer un JWT
 function New-JWT {
@@ -69,6 +86,18 @@ function Test-JWT {
     catch {
         return $false
     }
+}
+
+# Fonction pour afficher joliment la table des stocks dans la console
+function Print-Stocks {
+    try {
+        Write-Host "\n=== Stocks actuels ===" -ForegroundColor Cyan
+        foreach ($s in $script:stocks) {
+            $line = "Id: $($s.Id) | Name: $($s.Name) | SKU: $($s.Sku) | Price: $($s.Price) | Qty: $($s.Quantity) | Reorder: $($s.ReorderLevel) | Supplier: $($s.Supplier) | Loc: $($s.Location)"
+            if ($s.Quantity -le ($s.ReorderLevel -as [int])) { Write-Host $line -ForegroundColor Yellow } else { Write-Host $line }
+        }
+        Write-Host "======================\n" -ForegroundColor Cyan
+    } catch { Write-Host "Erreur lors de l'affichage des stocks: $_" -ForegroundColor Red }
 }
 
 # Fonction pour gérer les requêtes
@@ -247,6 +276,208 @@ function Handle-Request {
                 $response.StatusCode = 401
             }
         }
+        # Stocks endpoints
+        elseif ($path -eq "/api/stocks" -and $method -eq "GET") {
+            $authHeader = $request.Headers["Authorization"]
+            if ($authHeader -and $authHeader.StartsWith("Bearer ")) {
+                $token = $authHeader.Substring(7)
+                if (Test-JWT -Token $token) {
+                    $result = $stocks | ConvertTo-Json
+                    $buffer = [Text.Encoding]::UTF8.GetBytes($result)
+                    $response.ContentType = "application/json"
+                    $response.StatusCode = 200
+                    $response.ContentLength64 = $buffer.Length
+                    $response.OutputStream.Write($buffer, 0, $buffer.Length)
+                }
+                else { $response.StatusCode = 401 }
+            }
+            else { $response.StatusCode = 401 }
+        }
+        elseif ($path -eq "/api/stocks" -and $method -eq "POST") {
+            $authHeader = $request.Headers["Authorization"]
+            if ($authHeader -and $authHeader.StartsWith("Bearer ")) {
+                $token = $authHeader.Substring(7)
+                if (Test-JWT -Token $token) {
+                    $reader = New-Object System.IO.StreamReader($request.InputStream)
+                    $body = $reader.ReadToEnd() | ConvertFrom-Json
+                    $reader.Close()
+
+                    $newStock = @{
+                        Id = $script:nextStockId++
+                        Name = $body.name
+                        Quantity = $body.quantity
+                        Location = $body.location
+                        Sku = $body.sku
+                        Price = $body.price
+                        Supplier = $body.supplier
+                        ReorderLevel = $body.reorderLevel
+                        Description = $body.description
+                    }
+                    $script:stocks += $newStock
+
+                    $result = $newStock | ConvertTo-Json
+                    $buffer = [Text.Encoding]::UTF8.GetBytes($result)
+                    $response.ContentType = "application/json"
+                    $response.StatusCode = 201
+                    $response.ContentLength64 = $buffer.Length
+                    $response.OutputStream.Write($buffer, 0, $buffer.Length)
+                    # Afficher les stocks après la création
+                    Print-Stocks
+                }
+                else { $response.StatusCode = 401 }
+            }
+            else { $response.StatusCode = 401 }
+        }
+        elseif ($path -match "^/api/stocks/(\d+)$" -and $method -eq "PUT") {
+            $authHeader = $request.Headers["Authorization"]
+            if ($authHeader -and $authHeader.StartsWith("Bearer ")) {
+                $token = $authHeader.Substring(7)
+                if (Test-JWT -Token $token) {
+                    $id = [int]$matches[1]
+                    $reader = New-Object System.IO.StreamReader($request.InputStream)
+                    $body = $reader.ReadToEnd() | ConvertFrom-Json
+                    $reader.Close()
+
+                    $index = $script:stocks.IndexOf(($script:stocks | Where-Object { $_.Id -eq $id }))
+                    if ($index -ge 0) {
+                        $script:stocks[$index] = @{
+                            Id = $id
+                            Name = $body.name
+                            Quantity = $body.quantity
+                            Location = $body.location
+                            Sku = $body.sku
+                            Price = $body.price
+                            Supplier = $body.supplier
+                            ReorderLevel = $body.reorderLevel
+                            Description = $body.description
+                        }
+
+                        $result = $script:stocks[$index] | ConvertTo-Json
+                        $buffer = [Text.Encoding]::UTF8.GetBytes($result)
+                        $response.ContentType = "application/json"
+                        $response.StatusCode = 200
+                        $response.ContentLength64 = $buffer.Length
+                        $response.OutputStream.Write($buffer, 0, $buffer.Length)
+                        # Afficher les stocks après la mise à jour
+                        Print-Stocks
+                    }
+                    else { $response.StatusCode = 404 }
+                }
+                else { $response.StatusCode = 401 }
+            }
+            else { $response.StatusCode = 401 }
+        }
+        elseif ($path -match "^/api/stocks/(\d+)$" -and $method -eq "DELETE") {
+            $authHeader = $request.Headers["Authorization"]
+            if ($authHeader -and $authHeader.StartsWith("Bearer ")) {
+                $token = $authHeader.Substring(7)
+                if (Test-JWT -Token $token) {
+                    $id = [int]$matches[1]
+                    $script:stocks = $script:stocks | Where-Object { $_.Id -ne $id }
+                    $response.StatusCode = 204
+                    # Afficher les stocks après la suppression
+                    Print-Stocks
+                }
+                else { $response.StatusCode = 401 }
+            }
+            else { $response.StatusCode = 401 }
+        }
+        # Suppliers endpoints
+        elseif ($path -eq "/api/suppliers" -and $method -eq "GET") {
+            $authHeader = $request.Headers["Authorization"]
+            if ($authHeader -and $authHeader.StartsWith("Bearer ")) {
+                $token = $authHeader.Substring(7)
+                if (Test-JWT -Token $token) {
+                    $result = $script:suppliers | ConvertTo-Json
+                    $buffer = [Text.Encoding]::UTF8.GetBytes($result)
+                    $response.ContentType = "application/json"
+                    $response.StatusCode = 200
+                    $response.ContentLength64 = $buffer.Length
+                    $response.OutputStream.Write($buffer, 0, $buffer.Length)
+                }
+                else { $response.StatusCode = 401 }
+            }
+            else { $response.StatusCode = 401 }
+        }
+        elseif ($path -eq "/api/suppliers" -and $method -eq "POST") {
+            $authHeader = $request.Headers["Authorization"]
+            if ($authHeader -and $authHeader.StartsWith("Bearer ")) {
+                $token = $authHeader.Substring(7)
+                if (Test-JWT -Token $token) {
+                    $reader = New-Object System.IO.StreamReader($request.InputStream)
+                    $body = $reader.ReadToEnd() | ConvertFrom-Json
+                    $reader.Close()
+
+                    $new = @{
+                        Id = $script:nextSupplierId++
+                        Name = $body.name
+                        ContactPerson = $body.contactPerson
+                        Email = $body.email
+                        Phone = $body.phone
+                        Address = $body.address
+                        Notes = $body.notes
+                    }
+                    $script:suppliers += $new
+
+                    $result = $new | ConvertTo-Json
+                    $buffer = [Text.Encoding]::UTF8.GetBytes($result)
+                    $response.ContentType = "application/json"
+                    $response.StatusCode = 201
+                    $response.ContentLength64 = $buffer.Length
+                    $response.OutputStream.Write($buffer, 0, $buffer.Length)
+                }
+                else { $response.StatusCode = 401 }
+            }
+            else { $response.StatusCode = 401 }
+        }
+        elseif ($path -match "^/api/suppliers/(\d+)$" -and $method -eq "PUT") {
+            $authHeader = $request.Headers["Authorization"]
+            if ($authHeader -and $authHeader.StartsWith("Bearer ")) {
+                $token = $authHeader.Substring(7)
+                if (Test-JWT -Token $token) {
+                    $id = [int]$matches[1]
+                    $reader = New-Object System.IO.StreamReader($request.InputStream)
+                    $body = $reader.ReadToEnd() | ConvertFrom-Json
+                    $reader.Close()
+
+                    $index = $script:suppliers.IndexOf(($script:suppliers | Where-Object { $_.Id -eq $id }))
+                    if ($index -ge 0) {
+                        $script:suppliers[$index] = @{
+                            Id = $id
+                            Name = $body.name
+                            ContactPerson = $body.contactPerson
+                            Email = $body.email
+                            Phone = $body.phone
+                            Address = $body.address
+                            Notes = $body.notes
+                        }
+
+                        $result = $script:suppliers[$index] | ConvertTo-Json
+                        $buffer = [Text.Encoding]::UTF8.GetBytes($result)
+                        $response.ContentType = "application/json"
+                        $response.StatusCode = 200
+                        $response.ContentLength64 = $buffer.Length
+                        $response.OutputStream.Write($buffer, 0, $buffer.Length)
+                    }
+                    else { $response.StatusCode = 404 }
+                }
+                else { $response.StatusCode = 401 }
+            }
+            else { $response.StatusCode = 401 }
+        }
+        elseif ($path -match "^/api/suppliers/(\d+)$" -and $method -eq "DELETE") {
+            $authHeader = $request.Headers["Authorization"]
+            if ($authHeader -and $authHeader.StartsWith("Bearer ")) {
+                $token = $authHeader.Substring(7)
+                if (Test-JWT -Token $token) {
+                    $id = [int]$matches[1]
+                    $script:suppliers = $script:suppliers | Where-Object { $_.Id -ne $id }
+                    $response.StatusCode = 204
+                }
+                else { $response.StatusCode = 401 }
+            }
+            else { $response.StatusCode = 401 }
+        }
         else {
             Write-Host "Endpoint non trouvé: $path" -ForegroundColor Red
             $response.StatusCode = 404
@@ -269,6 +500,9 @@ Write-Host "Serveur API PowerShell démarré sur $url" -ForegroundColor Green
 Write-Host "Utilisateurs disponibles:" -ForegroundColor Cyan
 $users | ForEach-Object { Write-Host "  - Username: $($_.Username), Password: $($_.Password)" }
 Write-Host "`nAppuyez sur Ctrl+C pour arrêter le serveur" -ForegroundColor Yellow
+
+# Afficher les stocks au démarrage
+Print-Stocks
 
 try {
     while ($listener.IsListening) {
